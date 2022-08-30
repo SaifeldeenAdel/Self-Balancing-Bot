@@ -1,6 +1,6 @@
 #include <Wire.h>
-//#include "mpu_func.h"
-//#include "motor_func.h"
+#include "mpu_func.h"
+#include "motor_func.h"
 
 // Motor variable declaration
 int left_motor = 5;
@@ -8,7 +8,6 @@ int right_motor =6;
 int motor_speed = 10;
 
 // MPU variable declaration
-const int MPU_address = 0x68;
 float gForceX, gForceY, gForceZ; // Accelerometer data converted to g force units
 float gyroX, gyroY, gyroZ; // Gyroscope data converted to degrees
 float accAngleX, gyroAngleX;
@@ -25,9 +24,8 @@ double kd=0.8;
 int target = 0;
 
 
-
-
 void setup() {
+  // Function for waking up MPU and setting it up
   setupMPU();
   
   currentTime = millis();
@@ -70,6 +68,7 @@ void loop() {
   // Complementary filter combining both gyroscope and accelerometer data to deal with noise and other drifts
   roll = 0.96 * gyroAngleX + 0.04 * accAngleX;
 
+  
   error = target - roll;
   errorSum += error * elapsedTime;
   errorSlope = (error - lastError )/ elapsedTime;
@@ -77,47 +76,15 @@ void loop() {
   pid = (kp * error) + (ki * errorSum) + (kd * errorSlope);
 
   motor_speed = abs(pid);
+
+  if(roll < 0){
+    anticlockwise(motor_speed, left_motor, right_motor);
+  } else if (roll > 0) {
+    clockwise(motor_speed, left_motor, right_motor);
+  } else if (roll == 0) {
+    halt(left_motor, right_motor);
+  }
   
   lastError = error;
   previousTime = currentTime;
-}
-
-void setupMPU () {
-  Wire.begin();
-  Wire.beginTransmission(MPU_address); // Beginning transmission on 0x68, the address of the MPU according to the datasheet
-  Wire.write(0x6B);
-  Wire.write(0); // Waking up the MPU by writing a 0 byte to the power management register at 0x6B
-  Wire.endTransmission();
-  // Accelerometer and gyroscope full scale ranges are by default set to ±2g and ±250deg respectively so you dont need to change that
-}
-
-void requestAccData() {
-  Wire.beginTransmission(MPU_address);
-  Wire.write(0x3B); // Setting the address I want to receive data from. Accelerometer data starts from 0x3B
-  Wire.endTransmission();
-  Wire.requestFrom(MPU_address, 6); // Requesting 6 bytes as accelerometer data is 6 bytes long (2 bytes for each axis)
-}
-
-void requestGyroData() {
-  Wire.beginTransmission(MPU_address);
-  Wire.write(0x43); // Setting gyroscope starting address
-  Wire.endTransmission();
-  Wire.requestFrom(MPU_address, 6); 
-}
-
-
-void clockw()
-{
-  analogWrite(right_motor,motor_speed);
-  analogWrite(left_motor,motor_speed);
-}
-void anti()
-{
-  analogWrite(right_motor,motor_speed * -1);
-  analogWrite(left_motor,motor_speed * -1);
-}
-void halt()
-{
-  analogWrite(right_motor,0);
-  analogWrite(left_motor,0);
 }
